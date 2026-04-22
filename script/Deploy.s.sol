@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.7 <0.9.0;
+pragma solidity >=0.8.13 <0.9.0;
 
 import {Script, console} from "forge-std/Script.sol";
 import {LidoAaveGuard} from "../src/LidoAaveGuard.sol";

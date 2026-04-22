@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.7 <0.9.0;
+pragma solidity >=0.8.13 <0.9.0;
 
 import {Test} from "forge-std/Test.sol";
 import {LidoAaveGuard} from "../src/LidoAaveGuard.sol";
-import {IPool} from "aave-v3-core/contracts/interfaces/IPool.sol";
+import {IPool} from "interfaces/IPool.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract LidoAaveGuardTest is Test {
