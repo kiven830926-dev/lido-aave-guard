@@ -66,11 +66,7 @@ contract Deploy is Script {
      * @param threshold Health factor threshold (multiplied by 1e18)
      * @param slippageBps Slippage tolerance in basis points
      */
-    function runWithConfig(
-        address owner,
-        uint256 threshold,
-        uint256 slippageBps
-    ) external {
+    function runWithConfig(address owner, uint256 threshold, uint256 slippageBps) external {
         require(owner != address(0), "Invalid owner");
         require(threshold >= 105e16, "Threshold too low");
         require(slippageBps <= 500, "Slippage too high");

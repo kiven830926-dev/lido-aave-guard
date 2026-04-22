@@ -20,7 +20,7 @@ contract DebugTraceTest is Test {
         console2.log("setUp: start");
         vm.etch(STETH, bytes("deadbeef"));
         vm.etch(AAVE_POOL, bytes("deadbeef"));
-        
+
         guard = new LidoAaveGuard(owner);
         console2.log("setUp: deployed guard");
 
@@ -36,7 +36,7 @@ contract DebugTraceTest is Test {
     // ── STEP TESTS ───────────────────────────────────────────────────────────
 
     function test_step1_directPoolCall() public view {
-        (, , , , , uint256 f) = IPool(AAVE_POOL).getUserAccountData(user);
+        (,,,,, uint256 f) = IPool(AAVE_POOL).getUserAccountData(user);
         console2.log("[step1] direct pool HF:", f);
         assertEq(f, 103e16);
     }
@@ -47,7 +47,7 @@ contract DebugTraceTest is Test {
         console2.log("about to deploy fresh guard...");
         LidoAaveGuard fresh = new LidoAaveGuard(owner);
         console2.log("fresh guard deployed");
-        
+
         assertTrue(address(fresh) != address(0), "guard should be non-zero");
     }
 
@@ -69,22 +69,18 @@ contract DebugTraceTest is Test {
         uint256 repayAmt = (uint256(97e18) + 1) / 2;
 
         console2.log("Seeding 5 HF=103e16 mocks...");
-        for (uint i; i < 5; i++) {
+        for (uint256 i; i < 5; i++) {
             _enqueueMock(user, 100e18, 97e18, 2e18, 8000, 103e16);
         }
         console2.log("Done seeding");
 
         // Repay mock
         vm.mockCall(
-            AAVE_POOL,
-            abi.encodeWithSelector(IPool.repay.selector, STETH, repayAmt, 0, user),
-            abi.encode(repayAmt)
+            AAVE_POOL, abi.encodeWithSelector(IPool.repay.selector, STETH, repayAmt, 0, user), abi.encode(repayAmt)
         );
         _enqueueMock(user, 51e18, 48e18, 3e18, 8000, uint256(133e16));
         vm.mockCall(
-            AAVE_POOL,
-            abi.encodeWithSelector(IPool.withdraw.selector, STETH, repayAmt, user),
-            abi.encode(repayAmt)
+            AAVE_POOL, abi.encodeWithSelector(IPool.withdraw.selector, STETH, repayAmt, user), abi.encode(repayAmt)
         );
         vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, user), abi.encode(90e18));
 
@@ -99,7 +95,7 @@ contract DebugTraceTest is Test {
     /// @dev Test checkAndDeleverage WITHOUT setUp guard's configureUser side-effects
     function test_step6_isolatedCheck() public {
         address freshUser = makeAddr("freshUser");
-        
+
         // Deploy fresh guard just for this user
         LidoAaveGuard g2 = new LidoAaveGuard(owner);
         console2.log("g2 deployed");
@@ -115,7 +111,7 @@ contract DebugTraceTest is Test {
 
         (bool success, uint256 hf) = g2.checkAndDeleverage(freshUser);
         console2.log("[step6] success:", success ? 1 : 0);
-        
+
         assertTrue(success && hf == 103e16);
     }
 
@@ -140,7 +136,9 @@ contract DebugTraceTest is Test {
         vm.mockCall(
             AAVE_POOL,
             abi.encodeWithSelector(IPool.getUserAccountData.selector, userAddr),
-            abi.encode(totalCollateralETH, totalDebtETH, availableBorrowsETH, liquidationThreshold, uint256(0), healthFactor)
+            abi.encode(
+                totalCollateralETH, totalDebtETH, availableBorrowsETH, liquidationThreshold, uint256(0), healthFactor
+            )
         );
     }
 }

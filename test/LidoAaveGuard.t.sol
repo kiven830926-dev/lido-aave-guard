@@ -48,7 +48,7 @@ contract LidoAaveGuardTest is Test {
     // =========================================================================
     function testDeleverageInCrisis() public {
         uint256 debt = 97e18;
-        uint256 repayAmt = (debt + 1) / 2;   // ceil(97/2) = 49e18
+        uint256 repayAmt = (debt + 1) / 2; // ceil(97/2) = 49e18
 
         // Single persistent mock: all getUserAccountData calls return at-risk state.
         vm.mockCall(
@@ -77,13 +77,15 @@ contract LidoAaveGuardTest is Test {
         );
 
         // stETH balance: used for PO-16 audit trail only (see contract comment).
-        vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, user),     abi.encode(90e18));
-        vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, address(guard)), abi.encode(postSlipRepayAmt));
+        vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, user), abi.encode(90e18));
+        vm.mockCall(
+            STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, address(guard)), abi.encode(postSlipRepayAmt)
+        );
 
         (bool success, uint256 hfReturned) = guard.checkAndDeleverage(user);
 
         assertTrue(success, "Must execute deleveraging in extreme crisis");
-        assertEq(hfReturned, 103e16,                  "Entry HF was 1.03 - return that as confirmation");
+        assertEq(hfReturned, 103e16, "Entry HF was 1.03 - return that as confirmation");
     }
 
     // =========================================================================
@@ -96,7 +98,7 @@ contract LidoAaveGuardTest is Test {
 
         uint256 base = 100e18;
         uint256 minReceive = (base * (10000 - guard.slippageToleranceBps())) / 10000;
-        assertEq(minReceive, 98e18);   // 2% tolerance: minimum acceptable is 98%
+        assertEq(minReceive, 98e18); // 2% tolerance: minimum acceptable is 98%
     }
 
     /// @notice Updating slippage within valid range (<=500 bps) must succeed
@@ -111,7 +113,7 @@ contract LidoAaveGuardTest is Test {
     function testUpdateSlippageExceedsLimit() public {
         vm.expectRevert("Slippage too high");
         vm.prank(owner);
-        guard.updateSlippage(501);   // 5.01%
+        guard.updateSlippage(501); // 5.01%
     }
 
     /// @notice Non-owner cannot update slippage
@@ -124,7 +126,7 @@ contract LidoAaveGuardTest is Test {
     // HEALTH FACTOR - HF > threshold -> no deleveraging, returns (false, HF)
     // =========================================================================
     function testCheckHealthFactorNoDeleverage() public {
-        _enqueueMock(user, 100e18, 20e18, 50e18, 8000, 500e16);   // [1] entry
+        _enqueueMock(user, 100e18, 20e18, 50e18, 8000, 500e16); // [1] entry
 
         (bool success, uint256 healthFactor) = guard.checkAndDeleverage(user);
 
@@ -140,7 +142,7 @@ contract LidoAaveGuardTest is Test {
     // =========================================================================
     function testDeleverageTrigger() public {
         uint256 debt = 95e18;
-        uint256 repayAmt = (debt + 1) / 2;   // ceil(95/2) = 48e18
+        uint256 repayAmt = (debt + 1) / 2; // ceil(95/2) = 48e18
 
         // Single persistent mock: all getUserAccountData calls return HF=1.03 at-risk state.
         vm.mockCall(
@@ -162,7 +164,7 @@ contract LidoAaveGuardTest is Test {
             abi.encode(postSlippageRepayAmt)
         );
 
-        vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, user),          abi.encode(90e18));
+        vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, user), abi.encode(90e18));
         vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, address(guard)), abi.encode(repayAmt));
 
         (bool success,) = guard.checkAndDeleverage(user);
@@ -233,12 +235,16 @@ contract LidoAaveGuardTest is Test {
 
         // repayAmt after slippage protection (2%): 48e18 - 0.96e18 = 47.04e18
         uint256 postSlippageSafe = repayAmtSafe - (repayAmtSafe * guard.slippageToleranceBps() / 10000);
-        vm.mockCall(AAVE_POOL,
+        vm.mockCall(
+            AAVE_POOL,
             abi.encodeWithSelector(IPool.repay.selector, STETH, postSlippageSafe, 0, safeUser),
-            abi.encode(postSlippageSafe));
-        vm.mockCall(AAVE_POOL,
+            abi.encode(postSlippageSafe)
+        );
+        vm.mockCall(
+            AAVE_POOL,
             abi.encodeWithSelector(IPool.withdraw.selector, STETH, postSlippageSafe, safeUser),
-            abi.encode(postSlippageSafe));
+            abi.encode(postSlippageSafe)
+        );
         vm.mockCall(STETH, abi.encodeWithSelector(IERC20.balanceOf.selector, safeUser), abi.encode(90e18));
 
         // Warp past rate limit
@@ -307,13 +313,13 @@ contract LidoAaveGuardTest is Test {
     function testCannotLowerBelowMinimum() public {
         vm.expectRevert("Threshold too low");
         vm.prank(owner);
-        guard.updateThreshold(104e16);   // MIN_HEALTH_FACTOR = 1.05
+        guard.updateThreshold(104e16); // MIN_HEALTH_FACTOR = 1.05
     }
 
     function testCannotRaiseAboveMaximum() public {
         vm.expectRevert("Threshold too high");
         vm.prank(owner);
-        guard.updateThreshold(351e16);   // MAX = 3.50
+        guard.updateThreshold(351e16); // MAX = 3.50
     }
 
     function testOnlyOwnerUpdatesThreshold() public {
@@ -343,7 +349,7 @@ contract LidoAaveGuardTest is Test {
 
     function testHealthFactorThreshold() public view {
         uint256 thresh = guard.healthFactorThreshold();
-        assertEq(thresh, 105e16);   // 1.05
+        assertEq(thresh, 105e16); // 1.05
     }
 
     function testMinDeleverageInterval() public view {
@@ -356,13 +362,13 @@ contract LidoAaveGuardTest is Test {
 
     /// @notice Risky position (HF=1.03 < threshold) -> returns ceil(debt/2)
     function testCalculateDeleverageAmountRiskyPosition() public {
-        _enqueueMock(user, 100e18, 95e18, 5e18, 8000, 103e16);   // [1] getAccountData
+        _enqueueMock(user, 100e18, 95e18, 5e18, 8000, 103e16); // [1] getAccountData
 
-        (, , , , uint256 hf,) = guard.getAccountData(user);
+        (,,,, uint256 hf,) = guard.getAccountData(user);
         assertEq(hf, 103e16);
 
-        _enqueueMock(user, 100e18, 95e18, 5e18, 8000, 103e16);   // [2] calculateDeleverageAmount HF check
-        _enqueueMock(user, 100e18, 95e18, 5e18, 8000, 103e16);   // [3] totalDebtETH read
+        _enqueueMock(user, 100e18, 95e18, 5e18, 8000, 103e16); // [2] calculateDeleverageAmount HF check
+        _enqueueMock(user, 100e18, 95e18, 5e18, 8000, 103e16); // [3] totalDebtETH read
 
         assertEq(guard.healthFactorThreshold(), 105e16);
         uint256 recommended = guard.calculateDeleverageAmount(user);
@@ -416,7 +422,9 @@ contract LidoAaveGuardTest is Test {
         vm.mockCall(
             AAVE_POOL,
             abi.encodeWithSelector(IPool.getUserAccountData.selector, userAddr),
-            abi.encode(totalCollateralETH, totalDebtETH, availableBorrowsETH, liquidationThreshold, uint256(0), healthFactor)
+            abi.encode(
+                totalCollateralETH, totalDebtETH, availableBorrowsETH, liquidationThreshold, uint256(0), healthFactor
+            )
         );
     }
 }

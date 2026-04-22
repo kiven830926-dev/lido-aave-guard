@@ -15,7 +15,7 @@ contract DebugFifoTest is Test {
         vm.etch(STETH, bytes("deadbeef"));
         vm.etch(AAVE_POOL, bytes("deadbeef"));
         guard = new LidoAaveGuard(owner);
-        
+
         _mockForConfigureUser(user, type(uint256).max);
         vm.prank(user);
         guard.configureUser(STETH, address(0), 1e18);
@@ -28,8 +28,8 @@ contract DebugFifoTest is Test {
             abi.encodeWithSelector(IPool.getUserAccountData.selector, user),
             abi.encode(uint256(100e18), uint256(95e18), uint256(5e18), uint256(8000), uint256(0), uint256(103e16))
         );
-        
-        (,, ,, uint256 hf1,) = guard.getAccountData(user);
+
+        (,,,, uint256 hf1,) = guard.getAccountData(user);
         emit log_named_uint("HF1", hf1);
 
         // Enqueue mock 2: HF = 140
@@ -38,8 +38,8 @@ contract DebugFifoTest is Test {
             abi.encodeWithSelector(IPool.getUserAccountData.selector, user),
             abi.encode(uint256(100e18), uint256(47e18), uint256(5e18), uint256(8000), uint256(0), uint256(140e16))
         );
-        
-        (,, ,, uint256 hf2,) = guard.getAccountData(user);
+
+        (,,,, uint256 hf2,) = guard.getAccountData(user);
         emit log_named_uint("HF2", hf2);
 
         assertEq(hf1, 103e16, "first call should read HF=103");
