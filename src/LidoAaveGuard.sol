@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.7 <0.9.0;
+pragma solidity >=0.8.13 <0.9.0;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IPool} from "aave-v3-core/contracts/interfaces/IPool.sol";
-import {IPoolAddressesProvider} from "aave-v3-core/contracts/interfaces/IPoolAddressesProvider.sol";
+import {IPool} from "interfaces/IPool.sol";
 
 /**
  * @title LidoAaveGuard
@@ -77,11 +76,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
     );
 
     /// @dev Event emitted when health factor is checked
-    event HealthFactorChecked(
-        address indexed user,
-        uint256 healthFactor,
-        bool isAtRisk
-    );
+    event HealthFactorChecked(address indexed user, uint256 healthFactor, bool isAtRisk);
 
     /// @dev Event emitted when threshold is updated
     event ThresholdUpdated(uint256 newThreshold);
@@ -161,10 +156,8 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
         bool atRisk = hf < healthFactorThreshold;
         emit HealthFactorChecked(user, hf, atRisk);
 
-
-
         if (hf < healthFactorThreshold && hf > 0) {
-            emit HealthFactorChecked(user, hf, true);   // re-emit with isAtRisk=true
+            emit HealthFactorChecked(user, hf, true); // re-emit with isAtRisk=true
             _executeDeleverage(user, totalCollateralETH, totalDebtETH);
             return (true, healthFactorBefore);
         }
@@ -182,21 +175,14 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @param totalCollateralETH Total collateral value in ETH
      * @param totalDebtETH Total debt value in ETH
      */
-    function _executeDeleverage(
-        address user,
-        uint256 totalCollateralETH,
-        uint256 totalDebtETH
-    ) internal {
+    function _executeDeleverage(address user, uint256 totalCollateralETH, uint256 totalDebtETH) internal {
         UserConfig storage config = userConfigs[user];
 
         require(config.isEnabled, "Deleveraging not enabled for user");
         require(totalDebtETH > 0, "No debt to repay");
 
         // PO-1: Rate limiting check (prevent rapid sequential deleveraging)
-        require(
-            block.timestamp >= lastDeleverageTime[user] + MIN_DELEVERAGE_INTERVAL,
-            "Deleverage rate limit exceeded"
-        );
+        require(block.timestamp >= lastDeleverageTime[user] + MIN_DELEVERAGE_INTERVAL, "Deleverage rate limit exceeded");
 
         // PO-2: Calculate the amount to repay (50% of debt as starting point)
         // Use mulDiv for precision: round UP for debt calculation (favor protocol)
@@ -225,14 +211,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
         lastDeleverageTime[user] = block.timestamp;
 
         // Verify health factor improved
-        (
-            ,
-            ,
-            ,
-            ,
-            uint256 healthFactorAfter,
-
-        ) = pool.getUserAccountData(user);
+        (,,,, uint256 healthFactorAfter,) = pool.getUserAccountData(user);
 
         emit Deleveraged(
             user,
@@ -251,10 +230,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @param amount Amount to repay in ETH value
      * @return actualRepaid The actual amount repaid (tracked for precision loss)
      */
-    function _repayDebt(address user, uint256 amount)
-        internal
-        returns (uint256 actualRepaid)
-    {
+    function _repayDebt(address user, uint256 amount) internal returns (uint256 actualRepaid) {
         // PO-10: Repay debt to Aave with explicit return value check
         // Uses pool.repay() return value for precision tracking
         // In production: stETH.safeTransferFrom(user, address(this), amount) first,
@@ -277,10 +253,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @param repaidAmount Amount that was repaid
      * @return withdrawnAmount The amount of collateral withdrawn (rounded down)
      */
-    function _withdrawCollateral(address user, uint256 repaidAmount)
-        internal
-        returns (uint256 withdrawnAmount)
-    {
+    function _withdrawCollateral(address user, uint256 repaidAmount) internal returns (uint256 withdrawnAmount) {
         // PO-13: Calculate proportional collateral to withdraw
         // Round DOWN for user benefit (opposite of debt calculation)
         // This prevents cumulative 1-wei loss from favoring the protocol
@@ -291,7 +264,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
 
         // PO-15: Withdraw from Aave with explicit return value
         uint256 actualWithdrawn = pool.withdraw(STETH, withdrawnAmount, user);
-        
+
         // PO-16: Verify withdrawal succeeded and matches expected amount
         uint256 userBalanceAfter = stETH.balanceOf(user);
 
@@ -301,10 +274,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
         // balance doesn't change even when pool.withdraw succeeds; we bypass the
         // balance delta check and rely solely on pool.withdraw's non-zero return value.
         if (userBalanceAfter > userBalanceBefore) {
-            require(
-                userBalanceAfter >= userBalanceBefore + actualWithdrawn,
-                "Withdrawal verification failed"
-            );
+            require(userBalanceAfter >= userBalanceBefore + actualWithdrawn, "Withdrawal verification failed");
         }
 
         withdrawnAmount = actualWithdrawn;
@@ -317,11 +287,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @param amount The base amount to repay
      * @return protectedAmount Amount with slippage protection applied
      */
-    function _applySlippageProtection(uint256 amount)
-        internal
-        view
-        returns (uint256 protectedAmount)
-    {
+    function _applySlippageProtection(uint256 amount) internal view returns (uint256 protectedAmount) {
         // Calculate maximum acceptable loss due to slippage
         uint256 maxSlippage = (amount * slippageToleranceBps) / 10000;
 
@@ -341,11 +307,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @param borrowAsset The borrowed asset address
      * @param minCollateral Minimum collateral to maintain after deleveraging
      */
-    function configureUser(
-        address collateralAsset,
-        address borrowAsset,
-        uint256 minCollateral
-    ) external {
+    function configureUser(address collateralAsset, address borrowAsset, uint256 minCollateral) external {
         require(collateralAsset == STETH, "Invalid collateral asset");
 
         UserConfig storage config = userConfigs[msg.sender];
@@ -411,7 +373,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @return healthFactor Current health factor (multiplied by 1e18)
      */
     function getHealthFactor(address user) external view returns (uint256 healthFactor) {
-        (, , , , , healthFactor) = pool.getUserAccountData(user);
+        (,,,,, healthFactor) = pool.getUserAccountData(user);
     }
 
     /**
@@ -436,7 +398,9 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
             bool atRisk
         )
     {
-        (totalCollateralETH, totalDebtETH, availableBorrowsETH, currentLiquidationThreshold, , healthFactor) = pool.getUserAccountData(user);
+        (
+            totalCollateralETH, totalDebtETH, availableBorrowsETH, currentLiquidationThreshold,, healthFactor
+        ) = pool.getUserAccountData(user);
         atRisk = healthFactor < healthFactorThreshold;
     }
 
@@ -446,7 +410,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      * @return atRisk Whether the position is below the health factor threshold
      */
     function isAtRisk(address user) external view returns (bool atRisk) {
-        (, , , , , uint256 healthFactor) = pool.getUserAccountData(user);
+        (,,,,, uint256 healthFactor) = pool.getUserAccountData(user);
         atRisk = healthFactor < healthFactorThreshold;
     }
 
@@ -466,7 +430,7 @@ contract LidoAaveGuard is ReentrancyGuard, Pausable, Ownable {
      */
     function calculateDeleverageAmount(address user) external view returns (uint256 recommendedAmount) {
         require(healthFactorThreshold > 0, "THRESHOLD_ZERO");
-        (, uint256 totalDebtETH, , , , uint256 healthFactor) = pool.getUserAccountData(user);
+        (, uint256 totalDebtETH,,,, uint256 healthFactor) = pool.getUserAccountData(user);
         if (totalDebtETH == 0) return 0;
 
         if (healthFactor < healthFactorThreshold && healthFactor > 0) {

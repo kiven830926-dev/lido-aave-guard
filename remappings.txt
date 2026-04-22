@@ -1,3 +1,4 @@
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 aave-v3-core/=lib/aave-v3-core/
 forge-std/=lib/forge-std/src/
+interfaces/=src/interfaces/
